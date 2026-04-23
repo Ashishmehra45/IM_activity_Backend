@@ -9,9 +9,12 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-    origin: "http://localhost:5173", // Sahi hai
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true 
+  origin: [
+    "http://localhost:5173",
+    "https://im-activity-frontend.vercel.app"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
 }));
 
 // Routes
