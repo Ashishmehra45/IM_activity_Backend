@@ -1,70 +1,96 @@
-const employe = require('../models/employe');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const employe = require("../models/employe");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-// REGISTER
+// 📝 REGISTER LOGIC
 exports.register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    // 1. Designation ko bhi body se nikalo (Frontend input ke hisab se)
+    const { name, email, password, designation } = req.body;
 
+    // 2. Check if user already exists
     let user = await employe.findOne({ email });
-    if (user) return res.status(400).json({ msg: "User already exists" });
+    if (user)
+      return res
+        .status(400)
+        .json({ msg: "User with this email already exists" });
 
+    // 3. Password Hashing
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    user = new employe({ name, email, password: hashedPassword });
+    // 4. Naya User Create Karo (Designation ke sath)
+    user = new employe({
+      name,
+      email,
+      password: hashedPassword,
+      designation: designation || "Field Officer", // Default value agar user ne na bhari ho
+      isApproved: false, // Default pending rakhna hai
+      role: "Employee", // Default role
+    });
+
     await user.save();
 
-    res.status(201).json({ msg: "Registration successful! Wait for Admin approval." });
+    res.status(201).json({
+      msg: "Registration successful! Your account is sent for Admin approval.",
+      success: true,
+    });
   } catch (err) {
-    res.status(500).send("Server Error");
+    console.error("Register Error:", err.message);
+    res.status(500).json({ msg: "Internal Server Error" });
   }
 };
 
-// LOGIN (Jo pehle discuss kiya tha)
+// 🔑 LOGIN LOGIC
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await employe.findOne({ email });
 
+    // 1. User dhundo aur designation bhi fetch karo
+    const user = await employe.findOne({ email });
     if (!user) return res.status(400).json({ msg: "Invalid Credentials" });
 
+    // 2. Password match karo
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid Credentials" });
 
-    if (user.role === 'Employee' && !user.isApproved) {
-      return res.status(403).json({ msg: "Approval pending from Admin!" });
+    // 3. SMART CHECK: Approval check
+    // Agar Role 'Employee' hai tabhi approval check karo (Admins usually direct access karte hain)
+    if (user.role === "Employee" && !user.isApproved) {
+      return res.status(403).json({
+        msg: "Your account is pending approval from the Admin!",
+        pendingApproval: true,
+      });
     }
 
-    // 1. Token Generate Karo
+    // 4. Token Generation
     const token = jwt.sign(
-      { id: user._id, role: user.role }, 
-      process.env.JWT_SECRET, 
-      { expiresIn: '1h' }
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
     );
 
-    // 2. Cookie Set Karo (Security ke liye)
-    res.cookie('token', token, {
-      httpOnly: true,        // Frontend JS isse read nahi kar payegi (Safe from XSS)
-      secure: process.env.NODE_ENV === 'production', // Sirf HTTPS par chalega production mein
-      sameSite: 'strict',    // CSRF protection ke liye
-      maxAge: 3600000        // 1 ghanta (ms mein)
+    // 5. Secure Cookie Set-up
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 3600000,
     });
 
-    // 3. JSON Response bhejo (LocalStorage mein save karne ke liye)
-    res.json({ 
-      msg: "Login Successful",
-      token, // Ye frontend local storage mein save karega
-      user: { 
-        id: user._id, 
-        name: user.name, 
-        role: user.role 
-      } 
+    // 6. Final Response
+    res.json({
+      msg: `Welcome back, ${user.name}`,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        role: user.role,
+        designation: user.designation, // Frontend par profile dikhane ke liye
+      },
     });
-
   } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server Error");
+    console.error("Login Error:", err.message);
+    res.status(500).json({ msg: "Server Error" });
   }
 };
