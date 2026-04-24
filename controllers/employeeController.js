@@ -1,6 +1,7 @@
 const employe = require("../models/employe");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Task = require("../models/task");
 
 // 📝 REGISTER LOGIC
 exports.register = async (req, res) => {
@@ -92,5 +93,56 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error("Login Error:", err.message);
     res.status(500).json({ msg: "Server Error" });
+  }
+};
+
+
+// employeeController.js
+exports.getMyTasks = async (req, res) => {
+  try {
+    const employeeId = req.user.id; // 👈 Ye id ab authMiddleware se aayegi, URL params se nahi
+
+    const tasks = await Task.find({ assignedTo: employeeId })
+      .populate('assignedBy', 'name role')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: "Error loading tasks." });
+  }
+};
+
+// 🔄 2. UPDATE TASK STATUS (Employee apna task In-Progress ya Completed karega)
+exports.updateTaskStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const taskId = req.params.id;
+    const employeeId = req.user.id; // Logged-in employee
+
+    // Pehle task dhoondho
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({ message: "Task nahi mila!" });
+    }
+
+    // 🛡️ SECURITY CHECK: Kya ye task isi employee ka hai?
+    if (task.assignedTo.toString() !== employeeId) {
+      return res.status(403).json({ message: "Aap doosre ka task update nahi kar sakte!" });
+    }
+
+    // Status update karo aur save karo
+    task.status = status;
+    await task.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: `Task marked as ${status} 🚀`, 
+      task 
+    });
+
+  } catch (error) {
+    console.error("Update Status Error:", error);
+    res.status(500).json({ message: "Status update fail ho gaya." });
   }
 };
