@@ -158,3 +158,49 @@ exports.deleteTask = async (req, res) => {
   }
 };
 
+
+// 🕒 UPDATE TIMELINE (For both Admin & Employee)
+exports.updateTaskTimeline = async (req, res) => {
+  try {
+    const { id } = req.params; // Task ID
+    const { note, type } = req.body; // Frontend se aane wala note
+
+    if (!note) {
+      return res.status(400).json({ message: "Note empty nahi ho sakta bhai!" });
+    }
+
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({ message: "Task nahi mila" });
+    }
+
+    // Naya timeline object taiyar karo
+    const timelineEntry = {
+      note,
+      type: type || 'Update',
+      addedBy: {
+        id: req.user.id,     // Middleware (JWT) se aayegi
+        name: req.user.name, // Middleware (JWT) se aayega
+        role: req.user.role  // Middleware (JWT) se aayega (Admin or Employee)
+      },
+      timestamp: new Date()
+    };
+
+    // Task ki timeline array mein push kar do
+    task.timeline.push(timelineEntry);
+    
+    // Save the task
+    await task.save();
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Timeline updated! 🚀", 
+      timeline: task.timeline 
+    });
+
+  } catch (error) {
+    console.error("Timeline Error:", error);
+    res.status(500).json({ message: "Server error: Timeline update fail" });
+  }
+};
+

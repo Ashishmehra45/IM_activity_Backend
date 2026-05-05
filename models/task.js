@@ -1,40 +1,69 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const TaskSchema = new mongoose.Schema({
-  title: {
+// --- Timeline Schema (Task ke andar ki updates ke liye) ---
+const TimelineSchema = new mongoose.Schema({
+  note: {
     type: String,
     required: true,
-    trim: true
   },
-  description: {
+  type: {
     type: String,
-    required: true
+    enum: ["Update", "Instruction", "Status Change"],
+    default: "Update",
   },
-  priority: {
-    type: String,
-    enum: ['Low', 'Medium', 'High'],
-    default: 'Medium'
+  addedBy: {
+    id: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" }, // Ya Admin
+    name: String,
+    role: { type: String, enum: ["Admin", "Employee"] },
   },
-  status: {
-    type: String,
-    enum: ['Pending', 'In Progress', 'Completed', 'Rejected'],
-    default: 'Pending'
-  },
-  assignedTo: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Employee'  // 👈 Jisko task mila (Employee)
-  },
-  assignedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Employee'  // 👈 Jisne task diya (Admin bhi toh yahi hai)
-  },
-  deadline: {
-    type: Date
-  },
-  createdAt: {
+  timestamp: {
     type: Date,
-    default: Date.now
-  }
-}, { timestamps: true });
+    default: Date.now,
+  },
+});
 
-module.exports = mongoose.model('Task', TaskSchema);
+// --- Main Task Schema ---
+const TaskSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    description: {
+      type: String,
+      required: true,
+    },
+    priority: {
+      type: String,
+      enum: ["Low", "Medium", "High"],
+      default: "Medium",
+    },
+    status: {
+      type: String,
+      enum: ["Pending", "In Progress", "Completed", "Rejected"],
+      default: "Pending",
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+    },
+    assignedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Employee",
+    },
+    deadline: {
+      type: Date,
+    },
+    // 🔥 YE RAHI TIMELINE ARRAY
+    timeline: [TimelineSchema],
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { timestamps: true },
+);
+
+module.exports = mongoose.model("Task", TaskSchema);

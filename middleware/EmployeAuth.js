@@ -1,26 +1,31 @@
 const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-  // 1. Frontend se aane wale headers mein se token nikalo
   const authHeader = req.header('Authorization');
 
-  // Agar header hi nahi hai ya 'Bearer ' se start nahi hota
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: "Access Denied! token not found." });
+    return res.status(401).json({ message: "Access Denied! Token not found." });
   }
 
-  // 2. 'Bearer <token>' mein se sirf token ko alag karo
   const token = authHeader.split(' ')[1];
 
   try {
-    // 3. Token ko verify karo apni SECRET KEY ke sath
-    // (Ensure karna ki teri .env file me JWT_SECRET likha ho)
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 4. Token verify ho gaya! Ab user ki details (jaise id) 'req.user' me daal do
-    req.user = decoded; 
+    // 🔥 1. User ka data extract karo
+    const userData = decoded.user || decoded;
 
-    // 5. Agle function (controller) ke paas bhej do
+    // 🔥 2. ROLE CHECK: Agar role 'Employee' nahi hai, toh bhaga do
+    // (Ensure karna ki login ke waqt tune token me 'role' save kiya tha)
+    if (userData.role !== 'Employee') {
+        return res.status(403).json({ 
+            message: "Access Denied! Ye rasta sirf Employees ke liye hai." 
+        });
+    }
+
+    // 3. Sab sahi hai, toh details 'req.user' mein daal do
+    req.user = userData; 
+
     next();
   } catch (error) {
     console.error("Token Error:", error.message);
