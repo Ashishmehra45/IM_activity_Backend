@@ -117,7 +117,6 @@ exports.getEmployeeTasks = async (req, res) => {
 };
 
 // 🌐 GET ALL GLOBAL TASKS (For Global Tracking Tab)
-// 🌐 GET ALL GLOBAL TASKS (For Global Tracking Tab)
 exports.getAllTasks = async (req, res) => {
   try {
     const tasks = await Task.find()
@@ -129,6 +128,33 @@ exports.getAllTasks = async (req, res) => {
   } catch (error) {
     console.error("Global Tasks Error:", error);
     res.status(500).json({ message: "Server Error: Saare tasks fetch nahi ho paaye" });
+  }
+};
+
+// 🗑️ DELETE TASK (With Employee Validation)
+exports.deleteTask = async (req, res) => {
+  try {
+    const { taskId, employeeId } = req.params; // Dono IDs URL se lenge
+
+    // Find karo wo task jiska ID taskId ho AUR jo employeeId ko assigned ho
+    const task = await Task.findOne({ _id: taskId, assignedTo: employeeId });
+
+    if (!task) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Ye task is employee ka nahi hai ya exist nahi karta!" 
+      });
+    }
+
+    // Agar mil gaya toh uda do
+    await Task.findByIdAndDelete(taskId);
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Task successfully deleted! 🗑️" 
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error during deletion" });
   }
 };
 
